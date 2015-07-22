@@ -61,47 +61,37 @@ class Currency {
 		}
 	}
 
-	public function format($number, $currency = null, $symbol_style = '%symbol%', $inverse = false, $rounding_type = '', $precision = null)
+	public function format($number, $currency = null, $symbol_style = ' %symbol%', $to_currency = false, $fees = 10)
 	{
-		if ($currency && $this->hasCurrency($currency))
-		{
-			$symbol_left    = $this->currencies[$currency]['symbol_left'];
-			$symbol_right   = $this->currencies[$currency]['symbol_right'];
-			$decimal_place  = $this->currencies[$currency]['decimal_place'];
-			$decimal_point  = $this->currencies[$currency]['decimal_point'];
-			$thousand_point = $this->currencies[$currency]['thousand_point'];
-		}
-		else
-		{
+
+		if ($to_currency) {
+			$symbol_left    = $this->currencies[$to_currency]['symbol_left'];
+			$symbol_right   = $this->currencies[$to_currency]['symbol_right'];
+			$decimal_place  = $this->currencies[$to_currency]['decimal_place'];
+			$decimal_point  = $this->currencies[$to_currency]['decimal_point'];
+			$thousand_point = $this->currencies[$to_currency]['thousand_point'];
+			$code = $to_currency;
+		} else {
+			$this->code = (isset($this->code) && !empty($this->code)) ? $this->code : 'USD';
 			$symbol_left    = $this->currencies[$this->code]['symbol_left'];
 			$symbol_right   = $this->currencies[$this->code]['symbol_right'];
 			$decimal_place  = $this->currencies[$this->code]['decimal_place'];
 			$decimal_point  = $this->currencies[$this->code]['decimal_point'];
 			$thousand_point = $this->currencies[$this->code]['thousand_point'];
-
-			$currency = $this->code;
+			$code = $this->code;
 		}
 
-		if ($value = $this->currencies[$currency]['value'])
-		{
-			if ($inverse)
-			{
-				$value = $number * (1 / $value);
-			}
-			else
-			{
-				$value = $number * $value;
-			}
-		}
-		else
-		{
+		$rate = ($currency && $this->hasCurrency($currency)) ? $this->currencies[$currency]['value'] : 1;
+
+		if ($value = $this->currencies[$code]['value']) {
+			$value = ((int)$number / $rate) * $value;
+		} else {
 			$value = $number;
 		}
 
 		$string = '';
 
-		if ($symbol_left)
-		{
+		if ($symbol_left) {
 			$string .= str_replace('%symbol%', $symbol_left, $symbol_style);
 
 			if ($this->app['config']['currency::use_space'])
@@ -110,49 +100,12 @@ class Currency {
 			}
 		}
 
-		switch ($rounding_type)
-		{
-			case 'ceil':
-			case 'ceiling':
-				if ($precision != null)
-				{
-					$multiplier = pow(10, -(int) $precision);
-				}
-				else
-				{
-					$multiplier = pow(10, -(int) $decimal_place);
-				}
+		$value = empty($value) ? 0 : (($value < 1 ? 1 : $value) + ($value * ($fees / 100)));
 
-				$string .= number_format(ceil($value / $multiplier) * $multiplier, (int) $decimal_place, $decimal_point, $thousand_point);
-				break;
+		$string .= number_format(round($value), (int) $decimal_place, $decimal_point, $thousand_point);
 
-			case 'floor':
-				if ($precision != null)
-				{
-					$multiplier = pow(10, -(int) $precision);
-				}
-				else
-				{
-					$multiplier = pow(10, -(int) $decimal_place);
-				}
-
-				$string .= number_format(floor($value / $multiplier) * $multiplier, (int) $decimal_place, $decimal_point, $thousand_point);
-				break;
-
-			default:
-				if ($precision == null)
-				{
-					$precision = (int) $decimal_place;
-				}
-
-				$string .= number_format(round($value, (int) $precision), (int) $decimal_place, $decimal_point, $thousand_point);
-				break;
-		}
-
-		if ($symbol_right)
-		{
-			if ($this->app['config']['currency::use_space'])
-			{
+		if ($symbol_right) {
+			if ($this->app['config']['currency::use_space']) {
 				$string .= ' ';
 			}
 
